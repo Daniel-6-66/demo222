@@ -49,7 +49,7 @@ public class ChessGameFX extends Application {
 
                 int x = i;
                 int y = j;
-                square.setOnMouseClicked(e -> isWhiteTurn = handleSquareClick(x, y) ? !isWhiteTurn : isWhiteTurn);
+                square.setOnMouseClicked(e -> isWhiteTurn = handleSquareClick(x, y , chessBoard) ? !isWhiteTurn : isWhiteTurn);
 
                 squares[i][j] = square;
                 chessBoard.add(square, j, i);
@@ -62,46 +62,80 @@ public class ChessGameFX extends Application {
         primaryStage.show();
     }
 
-    private boolean handleSquareClick(int x, int y) {
-        if (selectedX == -1 && selectedY == -1) {
-            ChessPiece selectedPiece = board.getPiece(x, y);
-            if (selectedPiece != null && selectedPiece.GetColor() == (isWhiteTurn ? Color.WHITE : Color.BLACK)) {
-                if (board.isCheck(selectedPiece.GetColor())) {
+    private boolean handleSquareClick(int x, int y, GridPane chessBoard) {
+        // Проверка на шах и мат
+        if (board.isCheckMate(isWhiteTurn ? Color.WHITE : Color.BLACK)) {
+            showAlert("Game Over", "Checkmate! " + (isWhiteTurn ? "Black" : "White") + " wins!");
+            closeGame(chessBoard);
+            return false;
+        }
 
-                    // Проверка, может ли выбранная фигура устранить шах
-                    if (!board.canPieceDefendFromCheck(selectedPiece, x, y , isWhiteTurn ? Color.WHITE : Color.BLACK)) {
-                        Alert alert2 = new Alert(Alert.AlertType.ERROR);
-                        alert2.setTitle("Stop");
-                        alert2.setHeaderText(null);
-                        alert2.setContentText("This move doesn't defend you!");
-                        alert2.showAndWait();// Если фигура не может защитить от шаха, ход запрещен
-                    }
-                }
-                selectedX = x;
-                selectedY = y;
-            }
-        } else {
+        // Проверка на шах
+        if (board.isCheck(isWhiteTurn ? Color.WHITE : Color.BLACK)) {
+            showAlert("Check", "You are in check!");
+            // Дополнительные действия для ситуации шаха, если требуются
+        }
+
+        // Если уже выбрана фигура для хода
+        if (selectedX != -1 && selectedY != -1) {
+            // Попытка выполнить ход
             boolean isValidMove = board.movePiece(selectedX, selectedY, x, y);
 
             if (isValidMove) {
-                if (board.isCheck(!isWhiteTurn ? Color.WHITE : Color.BLACK)) {
-                    // Если ход не устраняет шах, он недействителен
-                    board.movePiece(x, y, selectedX, selectedY);
-                    return false;
+                // Если ход ведет к шаху или не устраняет шах, отменяем его
+                if (board.isCheck(isWhiteTurn ? Color.BLACK : Color.WHITE)) {
+                    System.out.println("BE");
+                    board.movePiece(x, y, selectedX, selectedY); // Откат хода
+                    showAlert("Invalid Move", "This move puts you in check.");
+                    resetSelection();
+                    return true;
                 }
+
+                // Ход успешен, обновляем доску и сменяем хода
                 updateBoard();
                 isWhiteTurn = !isWhiteTurn;
+                resetSelection();
+                return true;
             } else {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Invalid Move");
-                alert.setHeaderText(null);
-                alert.setContentText("This is an invalid move!");
-                alert.showAndWait();
+                // Невалидный ход, выводим уведомление
+                showAlert("Invalid Move", "This is an invalid move!");
+                resetSelection();
+                return true;
             }
-            selectedX = -1;
-            selectedY = -1;
+        } else {
+            // Выбор фигуры для хода
+            ChessPiece selectedPiece = board.getPiece(x, y);
+            if (selectedPiece != null && selectedPiece.GetColor() == (isWhiteTurn ? Color.WHITE : Color.BLACK)) {
+                selectedX = x;
+                selectedY = y;
+                return true;
+            }
         }
+
+        resetSelection();
         return true;
+    }
+
+    private void resetSelection() {
+        selectedX = -1;
+        selectedY = -1;
+    }
+
+    private void showAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    private void closeGame(GridPane chessBoard) {
+        // Закрыть текущее окно
+        Stage stage = (Stage) chessBoard.getScene().getWindow();
+        stage.close();
+
+        // Если требуется, можно добавить дополнительные действия перед закрытием,
+        // например, показать сообщение с результатами игры или сохранить результаты игры.
     }
 
     private void updateBoard() {
